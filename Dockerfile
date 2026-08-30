@@ -1,14 +1,29 @@
-# TODO: Write a production-ready Dockerfile
-#
-# All of these are tested by the grader:
-#
-# [ ] Multi-stage build (2+ FROM instructions)
-# [ ] Base image: python:3.14-slim (pinned version, no :latest)
-# [ ] Copy requirements.txt and pip install BEFORE copying source code (layer caching)
-# [ ] Run as a non-root USER
-# [ ] EXPOSE 8080
-# [ ] HEALTHCHECK instruction
-# [ ] No hardcoded secrets (no ENV PASSWORD=..., no ENV SECRET_KEY=...)
-# [ ] Final image under 200MB
-#
-# Start command: uvicorn src.app:app --host 0.0.0.0 --port 8080
+# ---- Stage 1: builder ----
+FROM python:3.14-slim AS builder
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# ---- Stage 2: runtime ----
+FROM python:3.14-slim
+
+WORKDIR /app
+
+RUN useradd --create-home --uid 1000 appuser
+
+COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
+COPY --chown=appuser:appuser src/ ./src/
+
+USER appuser
+
+ENV PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+
+CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8080"]
