@@ -21,7 +21,7 @@ from src.database import engine, Base, get_db
 from src.models import Node
 from src.schemas import NodeCreate, NodeUpdate, NodeResponse
 
-Base.metadata.create_all(bind=engine)  # crea la tabla si no existe
+Base.metadata.create_all(bind=engine)  
 
 app = FastAPI()
 
